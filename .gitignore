@@ -1,6 +1,7 @@
 /vendor
 composer.lock
 phpunit.xml
+.idea/
 
 # web-push-testing-service logs
 cli.log
