@@ -11,7 +11,7 @@ As it is standardized, you don't have to worry about what server type it relies 
 ## Requirements
 
 PHP 7.2+ and the following extensions:
- * gmp
+ * gmp (optional but better for performance)
  * mbstring
  * curl
  * openssl
@@ -44,7 +44,7 @@ $notifications = [
         'payload' => 'hello !',
     ], [
         'subscription' => Subscription::create([
-            'endpoint' => 'https://android.googleapis.com/gcm/send/abcdef...', // Chrome
+            'endpoint' => 'https://fcm.googleapis.com/fcm/send/abcdef...', // Chrome
         ]),
         'payload' => null,
     ], [
@@ -71,7 +71,7 @@ $webPush = new WebPush();
 
 // send multiple notifications with payload
 foreach ($notifications as $notification) {
-    $webPush->sendNotification(
+    $webPush->queueNotification(
         $notification['subscription'],
         $notification['payload'] // optional (defaults null)
     );
@@ -93,12 +93,11 @@ foreach ($webPush->flush() as $report) {
 
 /**
  * send one notification and flush directly
- * @var \Generator<MessageSentReport> $sent
+ * @var MessageSentReport $report
  */
-$sent = $webPush->sendNotification(
+$report = $webPush->sendOneNotification(
     $notifications[0]['subscription'],
-    $notifications[0]['payload'], // optional (defaults null)
-    true // optional (defaults false)
+    $notifications[0]['payload'] // optional (defaults null)
 );
 ```
 
@@ -118,10 +117,9 @@ You can specify your authentication details when instantiating WebPush. The keys
 
 use Minishlink\WebPush\WebPush;
 
-$endpoint = 'https://android.googleapis.com/gcm/send/abcdef...'; // Chrome
+$endpoint = 'https://fcm.googleapis.com/fcm/send/abcdef...'; // Chrome
 
 $auth = [
-    'GCM' => 'MY_GCM_API_KEY', // deprecated and optional, it's here only for compatibility reasons
     'VAPID' => [
         'subject' => 'mailto:me@website.com', // can be a mailto: or your website address
         'publicKey' => '~88 chars', // (recommended) uncompressed public key P-256 encoded in Base64-URL
@@ -132,7 +130,7 @@ $auth = [
 ];
 
 $webPush = new WebPush($auth);
-$webPush->sendNotification(...);
+$webPush->queueNotification(...);
 ```
 
 In order to generate the uncompressed public and secret key, encoded in Base64, enter the following in your Linux bash:
@@ -184,7 +182,7 @@ $webPush = new WebPush([], $defaultOptions);
 $webPush->setDefaultOptions($defaultOptions);
 
 // or for one notification
-$webPush->sendNotification($subscription, $payload, $flush, ['TTL' => 5000]);
+$webPush->sendOneNotification($subscription, $payload, ['TTL' => 5000]);
 ```
 
 #### TTL
@@ -208,8 +206,9 @@ it as a parameter : `$webPush->flush($batchSize)`.
 
 ### Server errors
 You can see what the browser vendor's server sends back in case it encountered an error (push subscription expiration, wrong parameters...).
-`sendNotification()` (with `$flush` as `true`) and `flush()` **always** returns a [`\Generator`](http://php.net/manual/en/language.generators.php) with [`MessageSentReport`](https://github.com/web-push-libs/web-push-php/blob/master/src/MessageSentReport.php) objects, even if you just send one notification.
-To loop through the results, just pass it into `foreach`. You can also use [`iterator_to_array`](http://php.net/manual/en/function.iterator-to-array.php) to check the contents while debugging.
+
+* `sendOneNotification()` returns a [`MessageSentReport`](https://github.com/web-push-libs/web-push-php/blob/master/src/MessageSentReport.php)
+* `flush()` returns a [`\Generator`](http://php.net/manual/en/language.generators.php) with [`MessageSentReport`](https://github.com/web-push-libs/web-push-php/blob/master/src/MessageSentReport.php) objects. To loop through the results, just pass it into `foreach`. You can also use [`iterator_to_array`](http://php.net/manual/en/function.iterator-to-array.php) to check the contents while debugging.
 
 ```php
 <?php
@@ -307,6 +306,7 @@ The following are available:
     - [MinishlinkWebPushBundle](https://github.com/Minishlink/web-push-bundle)
     - [bentools/webpush-bundle](https://github.com/bpolaszek/webpush-bundle) (associate your Symfony users to WebPush subscriptions)
 - Laravel: [laravel-notification-channels/webpush](https://github.com/laravel-notification-channels/webpush)
+- WordPress plugin: [Perfecty Push Notifications](https://github.com/rwngallego/perfecty-push-wp/)
 
 Feel free to add your own!
 
@@ -346,7 +346,7 @@ require __DIR__ . '/path/to/vendor/autoload.php';
 ```
 
 ### I must use PHP 5.4 or 5.5. What can I do?
-You won't be able to send any payload, so you'll only be able to use `sendNotification($subscription)`.
+You won't be able to send any payload, so you'll only be able to use `sendOneNotification($subscription)` or `queueNotification($subscription)`.
 Install the library with `composer` using `--ignore-platform-reqs`.
 The workaround for getting the payload is to fetch it in the service worker ([example](https://github.com/Minishlink/physbook/blob/2ed8b9a8a217446c9747e9191a50d6312651125d/web/service-worker.js#L75)). 
 
